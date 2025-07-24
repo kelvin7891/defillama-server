@@ -54,6 +54,7 @@ export async function craftProtocolV2({
     _getLastHourlyRecord = getLastHourlyRecord(protocolData as any)
     _getLastHourlyTokensUsd = getLastHourlyTokensUsd(protocolData as any)
     _getLastHourlyTokens = getLastHourlyTokens(protocolData as any)
+    console.log(_getLastHourlyTokens, _getLastHourlyRecord)
   }
 
   let [historicalUsdTvl, historicalUsdTokenTvl, historicalTokenTvl, mcap, lastUsdHourlyRecord, lastUsdTokenHourlyRecord, lastTokenHourlyRecord] = await Promise.all([
