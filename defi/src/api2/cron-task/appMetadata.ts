@@ -65,11 +65,18 @@ const slugMap: any = {
 };
 
 const slug = (tokenName = "") => {
-  if (!slugMap[tokenName]) slugMap[tokenName] = tokenName?.toLowerCase().split(" ").join("-").split("'").join("");
-  return slugMap[tokenName];
+  try {
+    if (!slugMap[tokenName]) slugMap[tokenName] = (tokenName ?? '')?.toLowerCase().split(" ").join("-").split("'").join("");
+    return slugMap[tokenName];
+  } catch (e: any) {
+    const errorMsg = `Error in slug for tokenName=${tokenName}, ${e.message}`;
+    console.error(errorMsg);
+    return '';
+  }
 };
 
 export async function storeAppMetadata() {
+  console.time("storeAppMetadata");
   console.log("starting to build metadata for front-end");
   try {
     await pullRaisesDataIfMissing();
@@ -79,6 +86,7 @@ export async function storeAppMetadata() {
     console.log("Error in storeAppMetadata: ", e);
     console.error(e);
   }
+  console.timeEnd("storeAppMetadata");
 }
 
 async function pullRaisesDataIfMissing() {
@@ -133,7 +141,7 @@ async function _storeAppMetadata() {
     chainAssetsData,
     chainsData,
     forksData,
-    stablecoinsTracked,
+    stablecoinsData,
     oraclesData,
     chainNftsData,
     safeHarborData,
@@ -157,21 +165,20 @@ async function _storeAppMetadata() {
     readRouteData("/dimensions/fees/dtt-lite").catch(() => ({ protocols: {} })),
     readRouteData("/dimensions/dexs/dv-lite").catch(() => ({ protocols: {} })),
     readRouteData("/dimensions/derivatives/dv-lite").catch(() => ({ protocols: {} })),
-    readRouteData("/dimensions/derivatives/doi-lite").catch(() => ({ protocols: {} })),
+    readRouteData("/dimensions/open-interest/doi-lite").catch(() => ({ protocols: {} })),
     readRouteData("/dimensions/aggregators/dv-lite").catch(() => ({ protocols: {} })),
     readRouteData("/dimensions/options/dnv-lite").catch(() => ({ protocols: {} })),
     readRouteData("/dimensions/options/dpv-lite").catch(() => ({ protocols: {} })),
     readRouteData("/dimensions/aggregator-derivatives/dv-lite").catch(() => ({ protocols: {} })),
     readRouteData("/dimensions/bridge-aggregators/dbv-lite").catch(() => ({ protocols: {} })),
     fetchJson(`https://defillama-datasets.llama.fi/emissionsProtocolsList`).catch(() => []),
-    fetchJson(`https://defillama-datasets.llama.fi/emissionsBreakdown`).catch(() => {}),
+    fetchJson(`https://defillama-datasets.llama.fi/emissionsBreakdown`).catch(() => { }),
     fetchJson(`${BRIDGES_API}?includeChains=true`).catch(() => ({ chains: [], bridges: [] })),
     fetchJson(CHAINS_ASSETS).catch(() => ({})),
     readRouteData("/chains").catch(() => []),
     readRouteData("/forks").catch(() => ({ forks: {} })),
     fetchJson(STABLECOINS_API)
-      .then((res) => ({ protocols: res.peggedAssets.length, chains: res.chains.length }))
-      .catch(() => ({ protocols: 0, chains: 0 })),
+      .catch(() => ({ peggedAssets: [], chains: [] })),
     readRouteData("/oracles").catch(() => ({ oracles: {} })),
     fetchJson(CHAIN_NFTS).catch(() => ({})),
     sdk.cache.readCache(SAFE_HARBOR_PROJECTS_CACHE_KEY, { readFromR2Cache: true }).catch(() => ({})),
@@ -746,6 +753,13 @@ async function _storeAppMetadata() {
       }
     }
 
+    for (let chain of stablecoinsData.chains) {
+      chain = chain.name
+      if (finalChains[slug(chain)]) {
+        finalChains[slug(chain)] = { ...(finalChains[slug(chain)] ?? { name: chain }), stablecoins: true };
+      }
+    }
+
     for (const chain of chainsData) {
       if (finalChains[slug(chain.name)] && chain.gecko_id) {
         finalChains[slug(chain.name)] = {
@@ -783,7 +797,7 @@ async function _storeAppMetadata() {
 
     const totalTrackedByMetric = {
       tvl: { protocols: 0, chains: 0 },
-      stablecoins: stablecoinsTracked,
+      stablecoins: { protocols: stablecoinsData.peggedAssets.length, chains: stablecoinsData.chains.length },
       fees: { protocols: 0, chains: 0 },
       revenue: { protocols: 0, chains: 0 },
       chainFees: { protocols: 0, chains: 0 },
